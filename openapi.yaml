@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Coding Interviews API
+  version: 0.1.0
+  description: REST contract for shareable collaborative interview rooms.
+servers:
+  - url: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /sessions:
+    post:
+      summary: Create an interview session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSessionRequest' }
+            example: { title: Two sum, language: javascript, expiresIn: 120, persistent: false }
+      responses:
+        '201':
+          description: Shareable room and role tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateSessionResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    get:
+      summary: List session metadata
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema: { type: object, properties: { sessions: { type: array, items: { $ref: '#/components/schemas/Session' } } } }
+  /sessions/{id}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      summary: Get session metadata and current code
+      responses:
+        '200': { description: Session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/{id}/execute:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      summary: Execute code for a session
+      description: Demo supports JavaScript in Node VM. Production must use an external isolated container or WASM runtime.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExecuteRequest' }
+            example: { code: "console.log('hello')", language: javascript, stdin: '', timeout: 1000 }
+      responses:
+        '200': { description: Execution result, content: { application/json: { schema: { $ref: '#/components/schemas/ExecuteResponse' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  parameters:
+    SessionId: { name: id, in: path, required: true, schema: { type: string }, example: abc123 }
+  responses:
+    BadRequest: { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    CreateSessionRequest:
+      type: object
+      required: [title, language]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        language: { type: string, enum: [javascript, python, java] }
+        expiresIn: { type: integer, minimum: 5, maximum: 1440, default: 120 }
+        persistent: { type: boolean, default: false }
+    CreateSessionResponse:
+      type: object
+      required: [sessionId, shareUrl, roleToken]
+      properties:
+        sessionId: { type: string }
+        shareUrl: { type: string, format: uri }
+        roleToken: { type: string }
+        candidateToken: { type: string }
+    Session:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        language: { type: string }
+        persistent: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        code: { type: string }
+        participants: { type: array, items: { type: object } }
+    ExecuteRequest:
+      type: object
+      required: [code, language]
+      properties:
+        code: { type: string, maxLength: 100000 }
+        language: { type: string, enum: [javascript, python, java] }
+        stdin: { type: string, maxLength: 10000 }
+        timeout: { type: integer, minimum: 50, maximum: 5000, default: 1000 }
+    ExecuteResponse:
+      type: object
+      required: [stdout, stderr, exitCode, durationMs]
+      properties:
+        stdout: { type: string }
+        stderr: { type: string }
+        exitCode: { type: integer }
+        durationMs: { type: integer }
+    Error:
+      type: object
+      properties: { error: { type: string } }
+    Health:
+      type: object
+      properties: { status: { type: string, example: ok } }

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: coding-interviews
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SESSION_TOKEN_SECRET
+        generateValue: true
